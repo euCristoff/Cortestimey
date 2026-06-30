@@ -16,12 +16,72 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
+  // Google Auth specific state
+  const [isCompletingGoogleSignUp, setIsCompletingGoogleSignUp] = useState<boolean>(false);
+  const [googleUser, setGoogleUser] = useState<any>(null);
+
   // Sign up fields
   const [nomeBarbearia, setNomeBarbearia] = useState('');
   const [nomeProprietario, setNomeProprietario] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setIsLoading(true);
+    try {
+      const result = await firebaseService.signInWithGoogle();
+      if (result.isNew) {
+        // New user! Transition to complete profile state
+        setGoogleUser(result.user);
+        setNomeProprietario(result.user.displayName || "");
+        setIsCompletingGoogleSignUp(true);
+      } else if (result.merchant) {
+        // Existing user, sign in successfully
+        onAuthSuccess(result.merchant);
+      } else {
+        throw new Error("Erro ao recuperar perfil da barbearia.");
+      }
+    } catch (err: any) {
+      console.error("Google Auth error:", err);
+      let friendlyMessage = err.message || "Erro ao fazer login com o Google.";
+      if (err.code === "auth/popup-blocked") {
+        friendlyMessage = "O pop-up de login do Google foi bloqueado pelo seu navegador. Por favor, permita pop-ups para fazer login.";
+      } else if (err.code === "auth/popup-closed-by-user") {
+        friendlyMessage = "O login foi cancelado porque a janela foi fechada.";
+      }
+      setError(friendlyMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!googleUser) return;
+    
+    setError(null);
+    setIsLoading(true);
+    
+    try {
+      if (!nomeBarbearia || !nomeProprietario || !whatsapp) {
+        throw new Error("Por favor, preencha todos os campos.");
+      }
+      const merchant = await firebaseService.saveGoogleMerchantProfile(
+        googleUser,
+        nomeBarbearia,
+        nomeProprietario,
+        whatsapp
+      );
+      onAuthSuccess(merchant);
+    } catch (err: any) {
+      console.error("Google save profile error:", err);
+      setError(err.message || "Ocorreu um erro ao salvar seu perfil.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +118,8 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
         friendlyMessage = "Formato de e-mail inválido.";
       } else if (err.code === "auth/weak-password") {
         friendlyMessage = "A senha é muito fraca. Escolha uma senha mais forte.";
+      } else if (err.code === "auth/operation-not-allowed") {
+        friendlyMessage = "O provedor de login com E-mail/Senha não está ativado no Firebase. Vá em seu Firebase Console > Authentication > Sign-in Method e ative o provedor 'E-mail/Senha'.";
       }
       
       setError(friendlyMessage);
@@ -94,20 +156,18 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
       <main className="flex-1 flex items-center justify-center py-8">
         <div className="w-full max-w-md bg-white rounded-3xl border border-gray-100 p-6 md:p-8 shadow-sm">
           
-          <div className="text-center mb-6">
-            <h2 className="font-display font-bold text-2xl text-brand-dark">
-              {isLogin ? 'Acesse sua barbearia' : 'Cadastre sua barbearia'}
-            </h2>
-            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mt-1.5">
-              {isLogin ? 'Pronto para começar?' : 'Teste grátis por 5 dias'}
-            </p>
-          </div>
+          {isCompletingGoogleSignUp ? (
+            <>
+              <div className="text-center mb-6">
+                <h2 className="font-display font-bold text-2xl text-brand-dark">
+                  Conclua seu cadastro
+                </h2>
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mt-1.5 text-brand-blue">
+                  Só mais alguns detalhes para ativar sua barbearia
+                </p>
+              </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4 text-left">
-            
-            {/* SIGNUP SPECIFIC FIELDS */}
-            {!isLogin && (
-              <>
+              <form onSubmit={handleGoogleProfileSubmit} className="space-y-4 text-left">
                 {/* Nome da barbearia */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-600">Nome da barbearia</label>
@@ -161,96 +221,244 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
                     />
                   </div>
                 </div>
-              </>
-            )}
 
-            {/* Email (Common) */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-600">E-mail</label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-gray-400">
-                  <Mail className="w-4 h-4" />
-                </span>
-                <input 
-                  type="email" 
-                  required
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="Ex: proprietario@gmail.com"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-brand-blue focus:outline-none transition-colors text-sm bg-gray-50"
-                />
-              </div>
-            </div>
+                {/* ERROR DISPLAY */}
+                {error && (
+                  <div className="p-3.5 bg-red-50 text-red-600 rounded-xl text-xs font-semibold flex items-start gap-2 border border-red-100">
+                    <BadgeAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </div>
+                )}
 
-            {/* Senha (Common) */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-600">Senha</label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-gray-400">
-                  <Lock className="w-4 h-4" />
-                </span>
-                <input 
-                  type={showPassword ? "text" : "password"} 
-                  required
-                  value={senha}
-                  onChange={e => setSenha(e.target.value)}
-                  placeholder="No mínimo 6 dígitos"
-                  className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 focus:border-brand-blue focus:outline-none transition-colors text-sm bg-gray-50 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                {/* SUBMIT BUTTON */}
+                <button 
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-brand-blue hover:bg-brand-blue-light disabled:bg-gray-400 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-brand-blue/10 transition-all uppercase text-xs tracking-wider mt-2 flex justify-center items-center gap-2 cursor-pointer"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {isLoading ? (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 text-brand-lime" />
+                      <span>Concluir Cadastro</span>
+                    </>
+                  )}
                 </button>
+
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setIsCompletingGoogleSignUp(false);
+                    setGoogleUser(null);
+                    setError(null);
+                  }}
+                  className="w-full border border-gray-200 hover:bg-gray-50 text-gray-600 font-bold py-3 px-4 rounded-xl transition-all text-xs tracking-wider uppercase mt-1 flex justify-center items-center cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <div className="text-center mb-6">
+                <h2 className="font-display font-bold text-2xl text-brand-dark">
+                  {isLogin ? 'Acesse sua barbearia' : 'Cadastre sua barbearia'}
+                </h2>
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mt-1.5">
+                  {isLogin ? 'Pronto para começar?' : 'Teste grátis por 5 dias'}
+                </p>
               </div>
-            </div>
 
-            {/* ERROR DISPLAY */}
-            {error && (
-              <div className="p-3.5 bg-red-50 text-red-600 rounded-xl text-xs font-semibold flex items-start gap-2 border border-red-100">
-                <BadgeAlert className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{error}</span>
+              <form onSubmit={handleSubmit} className="space-y-4 text-left">
+                
+                {/* SIGNUP SPECIFIC FIELDS */}
+                {!isLogin && (
+                  <>
+                    {/* Nome da barbearia */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-600">Nome da barbearia</label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-gray-400">
+                          <Building2 className="w-4 h-4" />
+                        </span>
+                        <input 
+                          type="text" 
+                          required
+                          value={nomeBarbearia}
+                          onChange={e => setNomeBarbearia(e.target.value)}
+                          placeholder="Ex: Barbearia do Bosque"
+                          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-brand-blue focus:outline-none transition-colors text-sm bg-gray-50"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Nome do proprietário */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-600">Nome do proprietário</label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-gray-400">
+                          <User className="w-4 h-4" />
+                        </span>
+                        <input 
+                          type="text" 
+                          required
+                          value={nomeProprietario}
+                          onChange={e => setNomeProprietario(e.target.value)}
+                          placeholder="Ex: Carlos de Souza"
+                          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-brand-blue focus:outline-none transition-colors text-sm bg-gray-50"
+                        />
+                      </div>
+                    </div>
+
+                    {/* WhatsApp */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-600">WhatsApp</label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-gray-400">
+                          <Phone className="w-4 h-4" />
+                        </span>
+                        <input 
+                          type="tel" 
+                          required
+                          value={whatsapp}
+                          onChange={e => setWhatsapp(e.target.value)}
+                          placeholder="Ex: (82) 98724-3056"
+                          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-brand-blue focus:outline-none transition-colors text-sm bg-gray-50"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Email (Common) */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-600">E-mail</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-gray-400">
+                      <Mail className="w-4 h-4" />
+                    </span>
+                    <input 
+                      type="email" 
+                      required
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="Ex: proprietario@gmail.com"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-brand-blue focus:outline-none transition-colors text-sm bg-gray-50"
+                    />
+                  </div>
+                </div>
+
+                {/* Senha (Common) */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-600">Senha</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-gray-400">
+                      <Lock className="w-4 h-4" />
+                    </span>
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      required
+                      value={senha}
+                      onChange={e => setSenha(e.target.value)}
+                      placeholder="No mínimo 6 dígitos"
+                      className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 focus:border-brand-blue focus:outline-none transition-colors text-sm bg-gray-50 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* ERROR DISPLAY */}
+                {error && (
+                  <div className="p-3.5 bg-red-50 text-red-600 rounded-xl text-xs font-semibold flex items-start gap-2 border border-red-100">
+                    <BadgeAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                {/* SUBMIT BUTTON */}
+                <button 
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-brand-blue hover:bg-brand-blue-light disabled:bg-gray-400 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-brand-blue/10 transition-all uppercase text-xs tracking-wider mt-2 flex justify-center items-center gap-2 cursor-pointer"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+                      <span>Processando...</span>
+                    </>
+                  ) : (
+                    <>
+                      {!isLogin && <Sparkles className="w-4 h-4 text-brand-lime" />}
+                      <span>{isLogin ? 'Entrar no Sistema' : 'Criar minha conta'}</span>
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {/* DIVIDER */}
+              <div className="relative my-4 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-100"></div>
+                </div>
+                <span className="relative bg-white px-3 text-[10px] uppercase font-bold text-gray-400 tracking-wider">ou</span>
               </div>
-            )}
 
-            {/* SUBMIT BUTTON */}
-            <button 
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-brand-blue hover:bg-brand-blue-light disabled:bg-gray-400 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-brand-blue/10 transition-all uppercase text-xs tracking-wider mt-2 flex justify-center items-center gap-2 cursor-pointer"
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                  <span>Processando...</span>
-                </>
-              ) : (
-                <>
-                  {!isLogin && <Sparkles className="w-4 h-4 text-brand-lime" />}
-                  <span>{isLogin ? 'Entrar no Sistema' : 'Criar minha conta'}</span>
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* TOGGLE LINK */}
-          <div className="text-center mt-6 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-500 font-medium">
-              {isLogin ? 'Novo por aqui?' : 'Já possui uma conta?'}
-              <button 
+              {/* GOOGLE SIGN IN BUTTON */}
+              <button
                 type="button"
-                onClick={() => {
-                  setIsLogin(!isLogin);
-                  setError(null);
-                }}
-                className="text-brand-blue hover:underline font-bold ml-1"
+                onClick={handleGoogleSignIn}
+                disabled={isLoading}
+                className="w-full border border-gray-200 hover:border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 text-gray-700 font-bold py-3.5 px-4 rounded-xl transition-all text-xs tracking-wider uppercase flex justify-center items-center gap-2 cursor-pointer"
               >
-                {isLogin ? 'Cadastre sua barbearia' : 'Fazer login'}
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.92h6.61c-.29 1.5-.1.14-.14 3.01l3.13 2.43c1.83-1.69 2.89-4.17 2.89-7.29z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.13-2.43c-.87.58-1.98.93-3.17.93-2.44 0-4.5-1.65-5.24-3.87H5.15v2.51C7.13 21.82 12 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M6.76 15.72c-.19-.58-.3-1.2-.3-1.85s.11-1.27.3-1.85V9.51H5.15C4.51 10.79 4.15 12.24 4.15 13.75s.36 2.96 1 4.24l1.61-2.27z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.93 1.19 15.24 0 12 0 7.13 0 2.22 4.18.24 7.51l1.61 2.21c1.51-2.22 3.57-3.87 6.15-3.87z"
+                  />
+                </svg>
+                <span>Entrar com o Google</span>
               </button>
-            </p>
-          </div>
+
+              {/* TOGGLE LINK */}
+              <div className="text-center mt-6 pt-4 border-t border-gray-100">
+                <p className="text-xs text-gray-500 font-medium">
+                  {isLogin ? 'Novo por aqui?' : 'Já possui uma conta?'}
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsLogin(!isLogin);
+                      setError(null);
+                    }}
+                    className="text-brand-blue hover:underline font-bold ml-1"
+                  >
+                    {isLogin ? 'Cadastre sua barbearia' : 'Fazer login'}
+                  </button>
+                </p>
+              </div>
+            </>
+          )}
 
         </div>
       </main>

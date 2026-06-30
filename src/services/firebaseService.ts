@@ -14,7 +14,9 @@ import {
   signInWithEmailAndPassword, 
   signOut as fbSignOut, 
   onAuthStateChanged,
-  User as FirebaseUser
+  User as FirebaseUser,
+  GoogleAuthProvider,
+  signInWithPopup
 } from "firebase/auth";
 import { Service, Barber, Client, Appointment, MerchantUser } from "../types";
 
@@ -85,6 +87,52 @@ export const firebaseService = {
       throw new Error("Cadastro da barbearia não encontrado no banco de dados.");
     }
     return snap.data() as MerchantUser;
+  },
+
+  async signInWithGoogle(): Promise<{ user: FirebaseUser; isNew: boolean; merchant?: MerchantUser }> {
+    const provider = new GoogleAuthProvider();
+    const userCredential = await signInWithPopup(auth, provider);
+    const user = userCredential.user;
+    
+    const docRef = doc(db, "users", user.uid);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return { user, isNew: false, merchant: snap.data() as MerchantUser };
+    } else {
+      return { user, isNew: true };
+    }
+  },
+
+  async saveGoogleMerchantProfile(user: FirebaseUser, nomeBarbearia: string, nomeProprietario: string, whatsapp: string): Promise<MerchantUser> {
+    const today = new Date();
+    const formatDate = (date: Date) => {
+      const dd = String(date.getDate()).padStart(2, '0');
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const yyyy = date.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    };
+    
+    const trialInicio = formatDate(today);
+    
+    const expiry = new Date();
+    expiry.setDate(today.getDate() + 5);
+    const trialFim = formatDate(expiry);
+    
+    const merchant: MerchantUser = {
+      uid: user.uid,
+      nomeBarbearia,
+      nomeProprietario,
+      email: user.email || "",
+      whatsapp,
+      plano: 'trial',
+      trialInicio,
+      trialFim,
+      status: 'ativo',
+      criadoEm: new Date().toISOString()
+    };
+    
+    await setDoc(doc(db, "users", user.uid), merchant);
+    return merchant;
   },
 
   async signOut(): Promise<void> {
