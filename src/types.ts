@@ -1,0 +1,66 @@
+export interface Service {
+  id: string;
+  ownerId?: string;
+  name: string;
+  price: number;
+  durationMin: number;
+  commissionPercent: number;
+}
+
+export interface Barber {
+  id: string;
+  ownerId?: string;
+  name: string;
+  avatar: string;
+  rating: number;
+  specialty: string;
+}
+
+export interface Client {
+  id: string;
+  ownerId?: string;
+  name: string;
+  phone: string;
+  email: string;
+}
+
+export interface Appointment {
+  id: string;
+  ownerId?: string;
+  clientName: string;
+  clientPhone: string;
+  serviceId: string;
+  barberId: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  notes?: string;
+  isWaitlist?: boolean;
+}
+
+export interface OnboardingData {
+  fullName: string;
+  cellphone: string;
+  email: string;
+  businessName: string;
+  objectives: string[];
+  cep: string;
+  neighborhood: string;
+  street: string;
+  number: string;
+  complement: string;
+}
+
+export interface MerchantUser {
+  uid: string;
+  nomeBarbearia: string;
+  nomeProprietario: string;
+  email: string;
+  whatsapp: string;
+  plano: 'trial' | 'premium';
+  trialInicio: string; // DD/MM/YYYY
+  trialFim: string; // DD/MM/YYYY
+  status: 'ativo' | 'suspenso' | 'expirado';
+  criadoEm: string;
+}
+

@@ -1,0 +1,6 @@
+{
+  "name": "Cortestime Barber - Gestão e Agendamento",
+  "description": "Sistema completo para gestão de barbearia com agenda online, controle de clientes e fluxo financeiro.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
