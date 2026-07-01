@@ -30,27 +30,22 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
   // Efeito responsável por capturar o retorno do redirecionamento do Google
   useEffect(() => {
     const checkGoogleRedirectResult = async () => {
-      // Se já estiver completando o fluxo de perfil, não roda novamente
       if (isCompletingGoogleSignUp) return;
 
       try {
         const { auth } = await import("../firebase");
         const { getRedirectResult } = await import("firebase/auth");
         
-        // Ativa um feedback visual de carregamento rápido enquanto checa se o usuário veio do Google
         setIsLoading(true);
         const result = await getRedirectResult(auth);
         
         if (result && result.user) {
           const user = result.user;
-          // Verifica se este usuário do Google já possui cadastro no banco Firestore
           const merchant = await firebaseService.getMerchant(user.uid);
           
           if (merchant) {
-            // Usuário existente encontrado, loga com sucesso
             onAuthSuccess(merchant);
           } else {
-            // Novo usuário! Transiciona para a tela de completar o perfil
             setGoogleUser(user);
             setNomeProprietario(user.displayName || "");
             setIsCompletingGoogleSignUp(true);
@@ -71,7 +66,6 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
     setError(null);
     setIsLoading(true);
     try {
-      // Isso vai redirecionar a página para o fluxo de login seguro do Google
       await firebaseService.signInWithGoogle();
     } catch (err: any) {
       console.error("Google Auth error:", err);
@@ -492,4 +486,3 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
     </div>
   );
 }
-
