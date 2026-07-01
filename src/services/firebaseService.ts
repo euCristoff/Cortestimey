@@ -109,20 +109,6 @@ export const firebaseService = {
     return null;
   },
 
-  async handleRedirectResult(): Promise<MerchantUser | null> {
-    const { getRedirectResult } = await import("firebase/auth");
-    const result = await getRedirectResult(auth);
-    if (result && result.user) {
-      const user = result.user;
-      const docRef = doc(db, "users", user.uid);
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        return snap.data() as MerchantUser;
-      }
-    }
-    return null;
-  },
-
   async saveGoogleMerchantProfile(user: FirebaseUser, nomeBarbearia: string, nomeProprietario: string, whatsapp: string): Promise<MerchantUser> {
     const today = new Date();
     const formatDate = (date: Date) => {
