@@ -12,11 +12,11 @@ import {
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
-  signOut as fbSignOut, 
+  fbSignOut, 
   onAuthStateChanged,
   User as FirebaseUser,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithRedirect // <-- Mudado aqui!
 } from "firebase/auth";
 import { Service, Barber, Client, Appointment, MerchantUser } from "../types";
 
@@ -91,7 +91,8 @@ export const firebaseService = {
 
   async signInWithGoogle(): Promise<{ user: FirebaseUser; isNew: boolean; merchant?: MerchantUser }> {
     const provider = new GoogleAuthProvider();
-    const userCredential = await signInWithPopup(auth, provider);
+    await signInWithRedirect(auth, provider);
+return null as any; 
     const user = userCredential.user;
     
     const docRef = doc(db, "users", user.uid);
