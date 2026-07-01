@@ -16,7 +16,7 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
   GoogleAuthProvider,
-  signInWithRedirect // <-- Mudado aqui!
+  signInWithRedirect
 } from "firebase/auth";
 import { Service, Barber, Client, Appointment, MerchantUser } from "../types";
 
@@ -89,7 +89,7 @@ export const firebaseService = {
     return snap.data() as MerchantUser;
   },
 
-      async signInWithGoogle(): Promise<{ user: FirebaseUser; isNew: boolean; merchant?: MerchantUser } | null> {
+  async signInWithGoogle(): Promise<{ user: FirebaseUser; isNew: boolean; merchant?: MerchantUser } | null> {
     const provider = new GoogleAuthProvider();
     await signInWithRedirect(auth, provider);
     return null;
@@ -271,3 +271,4 @@ export const firebaseService = {
     }
   }
 };
+
