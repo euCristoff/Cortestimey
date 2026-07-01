@@ -17,7 +17,8 @@ import {
   User as FirebaseUser,
   GoogleAuthProvider,
   signInWithRedirect,
-  getRedirectResult
+  getRedirectResult,
+  signInWithPopup
 } from "firebase/auth";
 import { Service, Barber, Client, Appointment, MerchantUser } from "../types";
 
@@ -93,6 +94,20 @@ export const firebaseService = {
   async signInWithGoogle(): Promise<void> {
     const provider = new GoogleAuthProvider();
     await signInWithRedirect(auth, provider);
+  },
+
+  async signInWithGooglePopup(): Promise<{ user: FirebaseUser; isNew: boolean; merchant?: MerchantUser }> {
+    const provider = new GoogleAuthProvider();
+    const userCredential = await signInWithPopup(auth, provider);
+    const user = userCredential.user;
+    
+    const docRef = doc(db, "users", user.uid);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return { user, isNew: false, merchant: snap.data() as MerchantUser };
+    } else {
+      return { user, isNew: true };
+    }
   },
 
   async handleRedirectResult(): Promise<{ user: FirebaseUser; isNew: boolean; merchant?: MerchantUser } | null> {

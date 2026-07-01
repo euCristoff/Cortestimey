@@ -157,7 +157,7 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, [firebaseConnected]);
+  }, []);
 
   // Automated background notifications scanning
   useEffect(() => {

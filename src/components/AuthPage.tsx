@@ -59,11 +59,24 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
     setError(null);
     setIsLoading(true);
     try {
-      await firebaseService.signInWithGoogle();
+      const result = await firebaseService.signInWithGooglePopup();
+      if (result.isNew) {
+        // Novo usuário! Transiciona para completar o perfil
+        setGoogleUser(result.user);
+        setNomeProprietario(result.user.displayName || "");
+        setIsCompletingGoogleSignUp(true);
+      } else if (result.merchant) {
+        // Usuário existente, entra com sucesso
+        onAuthSuccess(result.merchant);
+      }
     } catch (err: any) {
       console.error("Google Auth error:", err);
       let friendlyMessage = err.message || "Erro ao iniciar o login com o Google.";
+      if (err.code === "auth/popup-blocked") {
+        friendlyMessage = "O popup de login foi bloqueado pelo seu navegador. Por favor, permita popups para este site.";
+      }
       setError(friendlyMessage);
+    } finally {
       setIsLoading(false);
     }
   };
