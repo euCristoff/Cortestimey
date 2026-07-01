@@ -44,6 +44,7 @@ interface MerchantDashboardProps {
   onUpdateAppointmentStatus: (id: string, status: Appointment['status']) => void;
   onLogout: () => void;
   firebaseConnected: boolean | null;
+  onOpenClientBooking?: () => void;
 }
 
 export default function MerchantDashboard({
@@ -59,7 +60,8 @@ export default function MerchantDashboard({
   onAddAppointment,
   onUpdateAppointmentStatus,
   onLogout,
-  firebaseConnected
+  firebaseConnected,
+  onOpenClientBooking
 }: MerchantDashboardProps) {
   
   const [activeTab, setActiveTab] = useState<'inicio' | 'agenda' | 'notificacoes' | 'menu'>('inicio');
@@ -456,18 +458,24 @@ export default function MerchantDashboard({
       <main className="flex-1 overflow-y-auto p-4 md:p-8 max-w-6xl mx-auto w-full space-y-6">
         
         {/* TRIAL WARNING BANNER */}
-        {(getTrialDaysLeft() === 2 || getTrialDaysLeft() === 1 || getTrialDaysLeft() === 0) && (
+        {getTrialDaysLeft() >= 0 && (
           <div className={`p-4 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-3 text-sm font-bold shadow-sm text-left ${
-            getTrialDaysLeft() === 2 
+            getTrialDaysLeft() === 5
+              ? 'bg-brand-blue/10 text-brand-blue border border-brand-blue/20'
+              : getTrialDaysLeft() === 4 || getTrialDaysLeft() === 3
+              ? 'bg-blue-50/50 text-blue-900 border border-blue-100'
+              : getTrialDaysLeft() === 2 
               ? 'bg-yellow-50 text-yellow-800 border border-yellow-100' 
               : 'bg-[#bffd32] text-[#051b42] border border-white/10'
           }`}>
             <div className="flex items-center gap-2.5">
-              <span className="text-xl">{getTrialDaysLeft() === 2 ? '⏳' : '⭐'}</span>
+              <span className="text-xl">
+                {getTrialDaysLeft() === 5 ? '🎉' : getTrialDaysLeft() >= 3 ? '⭐' : getTrialDaysLeft() === 2 ? '⏳' : '🔥'}
+              </span>
               <span className="text-xs">
-                {getTrialDaysLeft() === 2 
-                  ? 'Continue aproveitando todos os recursos. Seu teste termina em 2 dias.' 
-                  : 'Hoje é o último dia do seu teste gratuito.'
+                {getTrialDaysLeft() === 5 
+                  ? 'Bem-vindo ao Cortestime! Seu período de teste de 5 dias grátis começou hoje. Aproveite!'
+                  : `Teste Grátis Ativo: Você possui ${getTrialDaysLeft()} dias restantes para testar todos os recursos do sistema.`
                 }
               </span>
             </div>
@@ -477,12 +485,16 @@ export default function MerchantDashboard({
                 window.open(`https://wa.me/5582987243056?text=${text}`, '_blank');
               }}
               className={`py-2 px-4 rounded-xl text-[10px] uppercase tracking-wider font-extrabold cursor-pointer transition-colors ${
-                getTrialDaysLeft() === 2 
+                getTrialDaysLeft() === 5
+                  ? 'bg-brand-blue text-white hover:bg-brand-blue-light'
+                  : getTrialDaysLeft() >= 3
+                  ? 'bg-brand-dark text-white hover:bg-gray-800'
+                  : getTrialDaysLeft() === 2 
                   ? 'bg-yellow-800 text-white hover:bg-yellow-900' 
                   : 'bg-[#051b42] text-white hover:bg-[#051b42]/90'
               }`}
             >
-              Assinar Plano
+              {getTrialDaysLeft() >= 3 ? 'Ativar Assinatura' : 'Assinar Plano'}
             </button>
           </div>
         )}
@@ -490,7 +502,7 @@ export default function MerchantDashboard({
         {/* TAB 1: INÍCIO (HOME) */}
         {activeTab === 'inicio' && (
           <div className="space-y-6">
-              {/* Business Welcome banner */}
+             {/* Business Welcome banner */}
             <div className="bg-brand-dark text-white p-6 rounded-3xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="absolute top-0 right-0 w-32 h-32 bg-brand-blue/20 rounded-full blur-2xl"></div>
               <div className="space-y-2">
@@ -498,10 +510,15 @@ export default function MerchantDashboard({
                   Painel Administrativo
                 </span>
                 <h2 className="font-display font-extrabold text-2xl md:text-3xl">
-                  {onboardingData.businessName || 'Minha Barbearia'}
+                  {merchant?.nomeBarbearia || onboardingData.businessName || 'Minha Barbearia'}
                 </h2>
                 <p className="text-xs text-gray-400">
-                  CEP: {onboardingData.cep} • {onboardingData.street}, {onboardingData.number}
+                  {merchant?.whatsapp 
+                    ? `WhatsApp: ${merchant.whatsapp} • Plano: Teste Grátis (5 dias)` 
+                    : onboardingData.cep 
+                    ? `CEP: ${onboardingData.cep} • ${onboardingData.street}, ${onboardingData.number}` 
+                    : 'Acesse todos os recursos abaixo'
+                  }
                 </p>
               </div>
 
@@ -522,18 +539,55 @@ export default function MerchantDashboard({
               </div>
             </div>
 
-            {/* Trial expiration banner */}
-            <div className="bg-[#bffd32]/25 border border-[#bffd32]/50 p-4 rounded-2xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-              <div className="flex gap-3 items-start text-left">
-                <span className="p-2 bg-brand-lime rounded-xl text-brand-dark mt-0.5 font-bold text-sm">💡</span>
-                <div>
-                  <h4 className="text-sm font-extrabold text-brand-dark">Sua barbearia tem 5 dias grátis para conhecer a Cortestime!</h4>
-                  <p className="text-xs text-gray-600 mt-0.5">5.000 barbearias já confiam na Cortestime. A próxima pode ser a sua!</p>
+            {/* CARD: LINK DE AGENDAMENTO ONLINE DO CLIENTE */}
+            <div className="bg-white p-5 md:p-6 rounded-3xl border border-gray-100 space-y-4 text-left shadow-sm">
+              <div className="flex justify-between items-start gap-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] bg-brand-lime/20 text-brand-lime-dark px-2.5 py-1 rounded-full uppercase font-extrabold tracking-wider">
+                    Agendamento Online Liberado 🚀
+                  </span>
+                  <h3 className="font-display font-extrabold text-lg text-brand-dark mt-2">
+                    Sua Página de Agendamento Online
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Seus clientes podem agendar de forma 100% automatizada. Compartilhe o link nas redes sociais e comece a receber agendamentos!
+                  </p>
+                </div>
+                <div className="p-3 bg-[#bffd32]/25 text-[#051b42] rounded-2xl hidden sm:block">
+                  <Smartphone className="w-6 h-6" />
                 </div>
               </div>
-              <button className="bg-brand-dark hover:bg-gray-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider transition-colors shrink-0">
-                Assinar agora
-              </button>
+
+              {/* Mock Link Box */}
+              <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center bg-gray-50 p-3 rounded-2xl border border-gray-100">
+                <div className="font-mono text-xs text-gray-600 truncate flex-1 flex items-center gap-1.5 px-1 py-1">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0"></span>
+                  <span>cortestime.com/agendar/{merchant?.nomeBarbearia ? merchant.nomeBarbearia.toLowerCase().replace(/\s+/g, '-') : 'sua-barbearia'}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      if (onOpenClientBooking) {
+                        onOpenClientBooking();
+                      }
+                    }}
+                    className="flex-1 sm:flex-initial text-xs font-bold text-brand-blue hover:bg-brand-blue/5 border border-brand-blue/20 bg-white px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>Testar Página</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const link = `https://cortestime.com/agendar/${merchant?.nomeBarbearia ? merchant.nomeBarbearia.toLowerCase().replace(/\s+/g, '-') : 'sua-barbearia'}`;
+                      navigator.clipboard.writeText(link);
+                      alert("Link de agendamento copiado com sucesso! Compartilhe com seus clientes no Instagram e WhatsApp.");
+                    }}
+                    className="flex-1 sm:flex-initial text-xs font-extrabold text-brand-dark bg-brand-lime hover:bg-brand-lime-dark px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <span>Copiar Link</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* QUICK STEPS CHECKLIST */}

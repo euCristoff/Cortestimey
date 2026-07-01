@@ -19,12 +19,11 @@ import {
 
 interface LandingPageProps {
   onStartTrial: () => void;
-  onOpenClientBooking: () => void;
   onLogin: () => void;
   firebaseConnected?: boolean | null;
 }
 
-export default function LandingPage({ onStartTrial, onOpenClientBooking, onLogin, firebaseConnected }: LandingPageProps) {
+export default function LandingPage({ onStartTrial, onLogin, firebaseConnected }: LandingPageProps) {
   return (
     <div id="landing-page" className="min-h-screen flex flex-col bg-[#FAF9F6] text-[#1E1E1E]">
       
@@ -39,13 +38,6 @@ export default function LandingPage({ onStartTrial, onOpenClientBooking, onLogin
         </div>
 
         <div className="flex items-center gap-3">
-          <button 
-            onClick={onOpenClientBooking}
-            className="hidden sm:inline-flex text-xs md:text-sm font-semibold text-brand-blue border border-brand-blue/30 hover:bg-brand-blue/5 px-4 py-2 rounded-full transition-colors cursor-pointer"
-          >
-            Agendar como Cliente
-          </button>
-          
           <button 
             onClick={onLogin}
             className="text-xs md:text-sm font-bold text-[#051b42] hover:text-brand-blue px-3.5 py-2 rounded-full hover:bg-gray-100 transition-all cursor-pointer"
@@ -98,12 +90,6 @@ export default function LandingPage({ onStartTrial, onOpenClientBooking, onLogin
               className="bg-brand-lime hover:bg-brand-lime-dark text-brand-dark font-extrabold text-sm sm:text-base px-8 py-4 rounded-full shadow-lg shadow-brand-lime/20 hover:shadow-brand-lime/30 transition-all text-center uppercase tracking-wide"
             >
               Teste Grátis por 5 dias
-            </button>
-            <button 
-              onClick={onOpenClientBooking}
-              className="sm:hidden bg-white border border-gray-200 text-gray-700 font-bold text-sm px-8 py-4 rounded-full text-center hover:bg-gray-50 transition-colors"
-            >
-              Visualizar Agendamento de Clientes
             </button>
           </motion.div>
 

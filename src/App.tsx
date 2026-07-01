@@ -268,7 +268,6 @@ export default function App() {
             setAuthMode('signup');
             setViewMode('auth');
           }}
-          onOpenClientBooking={() => setViewMode('clientBooking')}
           onLogin={() => {
             setAuthMode('login');
             setViewMode('auth');
@@ -286,11 +285,11 @@ export default function App() {
 
       {viewMode === 'clientBooking' && (
         <ClientBooking 
-          businessName={onboardingData.businessName}
+          businessName={currentMerchant?.nomeBarbearia || onboardingData.businessName}
           services={services}
           barbers={barbers}
           onBookAppointment={handleAddAppointment}
-          onClose={() => setViewMode('landing')}
+          onClose={() => setViewMode(currentMerchant ? 'dashboard' : 'landing')}
         />
       )}
 
@@ -309,6 +308,7 @@ export default function App() {
           onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
           onLogout={handleLogout}
           firebaseConnected={firebaseConnected}
+          onOpenClientBooking={() => setViewMode('clientBooking')}
         />
       )}
     </div>
