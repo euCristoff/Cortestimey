@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { firebaseService } from '../services/firebaseService';
 import LogoIcon from './LogoIcon';
@@ -27,32 +27,55 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
   const [senha, setSenha] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
 
+  // Efeito responsável por capturar o retorno do redirecionamento do Google
+  useEffect(() => {
+    const checkGoogleRedirectResult = async () => {
+      // Se já estiver completando o fluxo de perfil, não roda novamente
+      if (isCompletingGoogleSignUp) return;
+
+      try {
+        const { auth } = await import("../firebase");
+        const { getRedirectResult } = await import("firebase/auth");
+        
+        // Ativa um feedback visual de carregamento rápido enquanto checa se o usuário veio do Google
+        setIsLoading(true);
+        const result = await getRedirectResult(auth);
+        
+        if (result && result.user) {
+          const user = result.user;
+          // Verifica se este usuário do Google já possui cadastro no banco Firestore
+          const merchant = await firebaseService.getMerchant(user.uid);
+          
+          if (merchant) {
+            // Usuário existente encontrado, loga com sucesso
+            onAuthSuccess(merchant);
+          } else {
+            // Novo usuário! Transiciona para a tela de completar o perfil
+            setGoogleUser(user);
+            setNomeProprietario(user.displayName || "");
+            setIsCompletingGoogleSignUp(true);
+          }
+        }
+      } catch (err: any) {
+        console.error("Erro ao processar redirecionamento do Google:", err);
+        setError("Erro ao processar o login com o Google. Tente novamente.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkGoogleRedirectResult();
+  }, [onAuthSuccess, isCompletingGoogleSignUp]);
+
   const handleGoogleSignIn = async () => {
     setError(null);
     setIsLoading(true);
     try {
-      const result = await firebaseService.signInWithGoogle();
-      if (result.isNew) {
-        // New user! Transition to complete profile state
-        setGoogleUser(result.user);
-        setNomeProprietario(result.user.displayName || "");
-        setIsCompletingGoogleSignUp(true);
-      } else if (result.merchant) {
-        // Existing user, sign in successfully
-        onAuthSuccess(result.merchant);
-      } else {
-        throw new Error("Erro ao recuperar perfil da barbearia.");
-      }
+      // Isso vai redirecionar a página para o fluxo de login seguro do Google
+      await firebaseService.signInWithGoogle();
     } catch (err: any) {
       console.error("Google Auth error:", err);
-      let friendlyMessage = err.message || "Erro ao fazer login com o Google.";
-      if (err.code === "auth/popup-blocked") {
-        friendlyMessage = "O pop-up de login do Google foi bloqueado pelo seu navegador. Por favor, permita pop-ups para fazer login.";
-      } else if (err.code === "auth/popup-closed-by-user") {
-        friendlyMessage = "O login foi cancelado porque a janela foi fechada.";
-      }
-      setError(friendlyMessage);
-    } finally {
+      setError(err.message || "Erro ao iniciar o login com o Google.");
       setIsLoading(false);
     }
   };
@@ -109,7 +132,6 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
       console.error("Auth error:", err);
       let friendlyMessage = err.message || "Ocorreu um erro inesperado.";
       
-      // Customize Firebase specific auth error messages
       if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found") {
         friendlyMessage = "E-mail ou senha incorretos. Verifique suas credenciais.";
       } else if (err.code === "auth/email-already-in-use") {
@@ -119,7 +141,7 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
       } else if (err.code === "auth/weak-password") {
         friendlyMessage = "A senha é muito fraca. Escolha uma senha mais forte.";
       } else if (err.code === "auth/operation-not-allowed") {
-        friendlyMessage = "O provedor de login com E-mail/Senha não está ativado no Firebase. Vá em seu Firebase Console > Authentication > Sign-in Method e ative o provedor 'E-mail/Senha'.";
+        friendlyMessage = "O provedor de login com E-mail/Senha não está ativado no Firebase.";
       }
       
       setError(friendlyMessage);
@@ -470,3 +492,4 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
     </div>
   );
 }
+
