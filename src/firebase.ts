@@ -5,8 +5,8 @@ import { getAuth } from "firebase/auth";
 // Configuração obtida do seu projeto Firebase provisionado
 const firebaseConfig = {
   apiKey: "AIzaSyARuWfsZIwy75KaGmWw0_IiulZ_Lp-bgH8",
-  authDomain: "positive-decoder-ndzmz.firebaseapp.com",
-  projectId: "positive-decoder-ndzmz",
+  authDomain: "cortestimey.firebaseapp.com",
+  projectId: "cortestimey",
   storageBucket: "positive-decoder-ndzmz.firebasestorage.app",
   messagingSenderId: "576867565081",
   appId: "1:576867565081:web:e829e40f91fb500902f488"
