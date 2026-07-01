@@ -27,40 +27,33 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
   const [senha, setSenha] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
 
-  // Efeito responsável por capturar o retorno do redirecionamento do Google
+  // Listen to redirect results when the component mounts
   useEffect(() => {
-    const checkGoogleRedirectResult = async () => {
-      if (isCompletingGoogleSignUp) return;
-
+    let isMounted = true;
+    const checkRedirect = async () => {
       try {
-        const { auth } = await import("../firebase");
-        const { getRedirectResult } = await import("firebase/auth");
+        const result = await firebaseService.handleRedirectResult();
+        if (!result || !isMounted) return;
         
-        setIsLoading(true);
-        const result = await getRedirectResult(auth);
-        
-        if (result && result.user) {
-          const user = result.user;
-          const merchant = await firebaseService.getMerchant(user.uid);
-          
-          if (merchant) {
-            onAuthSuccess(merchant);
-          } else {
-            setGoogleUser(user);
-            setNomeProprietario(user.displayName || "");
-            setIsCompletingGoogleSignUp(true);
-          }
+        if (result.isNew) {
+          // New user! Transition to complete profile state
+          setGoogleUser(result.user);
+          setNomeProprietario(result.user.displayName || "");
+          setIsCompletingGoogleSignUp(true);
+        } else if (result.merchant) {
+          // Existing user, sign in successfully
+          onAuthSuccess(result.merchant);
         }
       } catch (err: any) {
-        console.error("Erro ao processar redirecionamento do Google:", err);
-        setError("Erro ao processar o login com o Google. Tente novamente.");
-      } finally {
-        setIsLoading(false);
+        console.error("Redirect Auth error:", err);
+        setError(err.message || "Erro ao processar login com o Google.");
       }
     };
-
-    checkGoogleRedirectResult();
-  }, [onAuthSuccess, isCompletingGoogleSignUp]);
+    checkRedirect();
+    return () => {
+      isMounted = false;
+    };
+  }, [onAuthSuccess]);
 
   const handleGoogleSignIn = async () => {
     setError(null);
@@ -69,7 +62,8 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
       await firebaseService.signInWithGoogle();
     } catch (err: any) {
       console.error("Google Auth error:", err);
-      setError(err.message || "Erro ao iniciar o login com o Google.");
+      let friendlyMessage = err.message || "Erro ao iniciar o login com o Google.";
+      setError(friendlyMessage);
       setIsLoading(false);
     }
   };
@@ -126,6 +120,7 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
       console.error("Auth error:", err);
       let friendlyMessage = err.message || "Ocorreu um erro inesperado.";
       
+      // Customize Firebase specific auth error messages
       if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found") {
         friendlyMessage = "E-mail ou senha incorretos. Verifique suas credenciais.";
       } else if (err.code === "auth/email-already-in-use") {
@@ -135,7 +130,7 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
       } else if (err.code === "auth/weak-password") {
         friendlyMessage = "A senha é muito fraca. Escolha uma senha mais forte.";
       } else if (err.code === "auth/operation-not-allowed") {
-        friendlyMessage = "O provedor de login com E-mail/Senha não está ativado no Firebase.";
+        friendlyMessage = "O provedor de login com E-mail/Senha não está ativado no Firebase. Vá em seu Firebase Console > Authentication > Sign-in Method e ative o provedor 'E-mail/Senha'.";
       }
       
       setError(friendlyMessage);
