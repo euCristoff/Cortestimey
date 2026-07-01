@@ -89,9 +89,23 @@ export const firebaseService = {
     return snap.data() as MerchantUser;
   },
 
-    async signInWithGoogle(): Promise<{ user: FirebaseUser; isNew: boolean; merchant?: MerchantUser } | null> {
+      async signInWithGoogle(): Promise<{ user: FirebaseUser; isNew: boolean; merchant?: MerchantUser } | null> {
     const provider = new GoogleAuthProvider();
     await signInWithRedirect(auth, provider);
+    return null;
+  },
+
+  async handleRedirectResult(): Promise<MerchantUser | null> {
+    const { getRedirectResult } = await import("firebase/auth");
+    const result = await getRedirectResult(auth);
+    if (result && result.user) {
+      const user = result.user;
+      const docRef = doc(db, "users", user.uid);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        return snap.data() as MerchantUser;
+      }
+    }
     return null;
   },
 
