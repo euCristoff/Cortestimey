@@ -24,26 +24,27 @@ import {
 import { OnboardingData } from '../types';
 
 interface OnboardingWizardProps {
+  initialData?: Partial<OnboardingData>;
   onComplete: (data: OnboardingData) => void;
   onBackToLanding: () => void;
 }
 
-export default function OnboardingWizard({ onComplete, onBackToLanding }: OnboardingWizardProps) {
+export default function OnboardingWizard({ initialData, onComplete, onBackToLanding }: OnboardingWizardProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(!!initialData);
   
   // Step data
   const [formData, setFormData] = useState<OnboardingData>({
-    fullName: '',
-    cellphone: '',
-    email: '',
-    businessName: '',
-    objectives: ['Organizar agenda'], // Pre-selected in screenshot 5
-    cep: '57150-000',
-    neighborhood: '',
-    street: '',
-    number: '',
-    complement: '',
+    fullName: initialData?.fullName || '',
+    cellphone: initialData?.cellphone || '',
+    email: initialData?.email || '',
+    businessName: initialData?.businessName || '',
+    objectives: initialData?.objectives || ['Organizar agenda'], // Pre-selected in screenshot 5
+    cep: initialData?.cep || '57150-000',
+    neighborhood: initialData?.neighborhood || '',
+    street: initialData?.street || '',
+    number: initialData?.number || '',
+    complement: initialData?.complement || '',
   });
 
   // SMS Verification

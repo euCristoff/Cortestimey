@@ -27,6 +27,71 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
   const [senha, setSenha] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
 
+  // Renderiza erros de forma amigável, especialmente o erro de domínio não autorizado do Firebase
+  const renderError = (errStr: string | null) => {
+    if (!errStr) return null;
+
+    if (errStr.startsWith("unauthorized-domain:")) {
+      const currentHost = window.location.hostname;
+      const domains = [currentHost];
+      if (currentHost.includes("-dev-")) {
+        domains.push(currentHost.replace("-dev-", "-pre-"));
+      } else if (currentHost.includes("-pre-")) {
+        domains.push(currentHost.replace("-pre-", "-dev-"));
+      }
+      if (!domains.includes("localhost")) {
+        domains.push("localhost");
+      }
+      const uniqueDomains = Array.from(new Set(domains));
+
+      return (
+        <div className="p-4 bg-amber-50 text-amber-900 rounded-2xl text-xs space-y-3 border border-amber-200">
+          <div className="flex items-center gap-2 font-bold text-amber-800">
+            <BadgeAlert className="w-4.5 h-4.5 shrink-0" />
+            <span>Domínios não Autorizados no Firebase</span>
+          </div>
+          <p className="text-gray-700 leading-relaxed text-left">
+            Para permitir o login do Google neste preview, você precisa adicionar estes domínios como autorizados no seu painel do Firebase:
+          </p>
+          
+          <div className="space-y-2">
+            {uniqueDomains.map((dom) => (
+              <div key={dom} className="bg-white p-2.5 rounded-xl border border-amber-200 font-mono text-[11px] flex justify-between items-center gap-2">
+                <span className="truncate text-gray-700">{dom}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(dom);
+                    alert(`Domínio "${dom}" copiado!`);
+                  }}
+                  className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg font-sans font-bold text-[10px] transition-colors shrink-0 cursor-pointer"
+                >
+                  Copiar
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <ol className="list-decimal list-inside space-y-1 text-[11px] text-gray-600 pl-1 leading-relaxed text-left">
+            <li>Acesse o <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="underline font-bold text-amber-800 hover:text-amber-900">Console do Firebase</a></li>
+            <li>Selecione o seu projeto <strong>cortestimey</strong></li>
+            <li>No menu lateral esquerdo, vá em <strong>Build</strong> &gt; <strong>Authentication</strong></li>
+            <li>Clique na aba <strong>Settings (Configurações)</strong> na parte superior</li>
+            <li>Clique em <strong>Authorized Domains (Domínios Autorizados)</strong></li>
+            <li>Adicione os domínios copiados acima na lista</li>
+          </ol>
+        </div>
+      );
+    }
+
+    return (
+      <div className="p-3.5 bg-red-50 text-red-600 rounded-xl text-xs font-semibold flex items-start gap-2 border border-red-100">
+        <BadgeAlert className="w-4 h-4 shrink-0 mt-0.5" />
+        <span className="text-left">{errStr}</span>
+      </div>
+    );
+  };
+
   // Listen to redirect results when the component mounts
   useEffect(() => {
     let isMounted = true;
@@ -46,7 +111,11 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
         }
       } catch (err: any) {
         console.error("Redirect Auth error:", err);
-        setError(err.message || "Erro ao processar login com o Google.");
+        if (err.code === "auth/unauthorized-domain" || (err.message && err.message.includes("unauthorized-domain"))) {
+          setError(`unauthorized-domain:${window.location.hostname}`);
+        } else {
+          setError(err.message || "Erro ao processar login com o Google.");
+        }
       }
     };
     checkRedirect();
@@ -74,6 +143,8 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
       let friendlyMessage = err.message || "Erro ao iniciar o login com o Google.";
       if (err.code === "auth/popup-blocked") {
         friendlyMessage = "O popup de login foi bloqueado pelo seu navegador. Por favor, permita popups para este site.";
+      } else if (err.code === "auth/unauthorized-domain" || (err.message && err.message.includes("unauthorized-domain"))) {
+        friendlyMessage = `unauthorized-domain:${window.location.hostname}`;
       }
       setError(friendlyMessage);
     } finally {
@@ -247,12 +318,7 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
                 </div>
 
                 {/* ERROR DISPLAY */}
-                {error && (
-                  <div className="p-3.5 bg-red-50 text-red-600 rounded-xl text-xs font-semibold flex items-start gap-2 border border-red-100">
-                    <BadgeAlert className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{error}</span>
-                  </div>
-                )}
+                {renderError(error)}
 
                 {/* SUBMIT BUTTON */}
                 <button 
@@ -402,12 +468,7 @@ export default function AuthPage({ onAuthSuccess, onBackToLanding }: AuthPagePro
                 </div>
 
                 {/* ERROR DISPLAY */}
-                {error && (
-                  <div className="p-3.5 bg-red-50 text-red-600 rounded-xl text-xs font-semibold flex items-start gap-2 border border-red-100">
-                    <BadgeAlert className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{error}</span>
-                  </div>
-                )}
+                {renderError(error)}
 
                 {/* SUBMIT BUTTON */}
                 <button 

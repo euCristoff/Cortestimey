@@ -20,7 +20,7 @@ import {
   getRedirectResult,
   signInWithPopup
 } from "firebase/auth";
-import { Service, Barber, Client, Appointment, MerchantUser } from "../types";
+import { Service, Barber, Client, Appointment, MerchantUser, OnboardingData } from "../types";
 
 // Collection Names
 const COLL_SERVICES = "services";
@@ -71,7 +71,8 @@ export const firebaseService = {
       trialInicio,
       trialFim,
       status: 'ativo',
-      criadoEm: new Date().toISOString()
+      criadoEm: new Date().toISOString(),
+      onboardingCompleted: false
     };
     
     // Save to Firestore 'users' collection
@@ -149,7 +150,8 @@ export const firebaseService = {
       trialInicio,
       trialFim,
       status: 'ativo',
-      criadoEm: new Date().toISOString()
+      criadoEm: new Date().toISOString(),
+      onboardingCompleted: false
     };
     
     await setDoc(doc(db, "users", user.uid), merchant);
@@ -167,6 +169,17 @@ export const firebaseService = {
       return snap.data() as MerchantUser;
     }
     return null;
+  },
+
+  async completeOnboarding(uid: string, data: OnboardingData): Promise<void> {
+    const docRef = doc(db, "users", uid);
+    await updateDoc(docRef, {
+      onboardingCompleted: true,
+      nomeBarbearia: data.businessName,
+      nomeProprietario: data.fullName,
+      whatsapp: data.cellphone,
+      onboardingData: data
+    });
   },
 
   onAuthChanged(callback: (user: FirebaseUser | null) => void) {

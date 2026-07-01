@@ -109,31 +109,35 @@ export default function App() {
             setFirebaseConnected(connected);
 
             if (connected) {
-              // Seeds default lists if this merchant's collections are completely empty
-              await firebaseService.seedInitialDataForMerchant(fbUser.uid, {
-                services: defaultServices,
-                barbers: defaultBarbers,
-                clients: defaultClients,
-                appointments: defaultAppointments
-              });
+              if (merchant.onboardingCompleted) {
+                // Fetch isolated data
+                const fbServices = await firebaseService.getServices(fbUser.uid);
+                if (fbServices.length > 0) setServices(fbServices);
 
-              // Fetch isolated data
-              const fbServices = await firebaseService.getServices(fbUser.uid);
-              if (fbServices.length > 0) setServices(fbServices);
+                const fbBarbers = await firebaseService.getBarbers(fbUser.uid);
+                if (fbBarbers.length > 0) setBarbers(fbBarbers);
 
-              const fbBarbers = await firebaseService.getBarbers(fbUser.uid);
-              if (fbBarbers.length > 0) setBarbers(fbBarbers);
+                const fbClients = await firebaseService.getClients(fbUser.uid);
+                setClients(fbClients);
 
-              const fbClients = await firebaseService.getClients(fbUser.uid);
-              if (fbClients.length > 0) setClients(fbClients);
-
-              const fbAppointments = await firebaseService.getAppointments(fbUser.uid);
-              if (fbAppointments.length > 0) setAppointments(fbAppointments);
+                const fbAppointments = await firebaseService.getAppointments(fbUser.uid);
+                setAppointments(fbAppointments);
+              } else {
+                // Keep clean/empty for new users who are about to start onboarding
+                setServices([]);
+                setBarbers([]);
+                setClients([]);
+                setAppointments([]);
+              }
             }
             
             // If trial has expired, stay on landing (blocker will catch it)
             if (isTrialActive(merchant.trialFim)) {
-              setViewMode('dashboard');
+              if (merchant.onboardingCompleted) {
+                setViewMode('dashboard');
+              } else {
+                setViewMode('onboarding');
+              }
             } else {
               setViewMode('landing');
             }
@@ -237,7 +241,11 @@ export default function App() {
   const handleAuthSuccess = (merchant: MerchantUser) => {
     setCurrentMerchant(merchant);
     if (isTrialActive(merchant.trialFim)) {
-      setViewMode('dashboard');
+      if (merchant.onboardingCompleted) {
+        setViewMode('dashboard');
+      } else {
+        setViewMode('onboarding');
+      }
     } else {
       setViewMode('landing');
     }
@@ -280,6 +288,71 @@ export default function App() {
         <AuthPage 
           onAuthSuccess={handleAuthSuccess}
           onBackToLanding={() => setViewMode('landing')}
+        />
+      )}
+
+      {viewMode === 'onboarding' && (
+        <OnboardingWizard 
+          initialData={currentMerchant ? {
+            fullName: currentMerchant.nomeProprietario,
+            cellphone: currentMerchant.whatsapp,
+            email: currentMerchant.email,
+            businessName: currentMerchant.nomeBarbearia
+          } : undefined}
+          onComplete={async (data) => {
+            if (currentMerchant) {
+              try {
+                setIsLoading(true);
+                // 1. Salva o status de onboarding concluído no Firestore
+                await firebaseService.completeOnboarding(currentMerchant.uid, data);
+                
+                // 2. Busca o perfil atualizado do barbeiro
+                const updatedMerchant = await firebaseService.getMerchant(currentMerchant.uid);
+                if (updatedMerchant) {
+                  setCurrentMerchant(updatedMerchant);
+                }
+
+                // 3. Fornece apenas serviços e barbeiros modelo, mantendo clientes e agendamentos zerados
+                if (firebaseConnected) {
+                  const existingServices = await firebaseService.getServices(currentMerchant.uid);
+                  if (existingServices.length === 0) {
+                    for (const s of defaultServices) {
+                      await firebaseService.saveService(s, currentMerchant.uid);
+                    }
+                    setServices(defaultServices);
+                  } else {
+                    setServices(existingServices);
+                  }
+                  
+                  const existingBarbers = await firebaseService.getBarbers(currentMerchant.uid);
+                  if (existingBarbers.length === 0) {
+                    for (const b of defaultBarbers) {
+                      await firebaseService.saveBarber(b, currentMerchant.uid);
+                    }
+                    setBarbers(defaultBarbers);
+                  } else {
+                    setBarbers(existingBarbers);
+                  }
+
+                  // Garante que a lista de clientes e de agendamentos fictícios esteja vazia para o usuário novo
+                  setClients([]);
+                  setAppointments([]);
+                }
+
+                setViewMode('dashboard');
+              } catch (e) {
+                console.error("Erro ao salvar onboarding:", e);
+                alert("Houve um erro ao salvar o onboarding. Por favor, tente novamente.");
+              } finally {
+                setIsLoading(false);
+              }
+            } else {
+              setViewMode('dashboard');
+            }
+          }}
+          onBackToLanding={() => {
+            handleLogout();
+          }}
         />
       )}
 

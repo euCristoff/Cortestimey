@@ -62,5 +62,6 @@ export interface MerchantUser {
   trialFim: string; // DD/MM/YYYY
   status: 'ativo' | 'suspenso' | 'expirado';
   criadoEm: string;
+  onboardingCompleted?: boolean;
 }
 
