@@ -16,8 +16,8 @@ const firebaseConfig = {
 // Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
 
-// Inicializa o Firestore conectando à base de dados oficial do seu projeto
-export const db = getFirestore(app);
+// Inicializa o Firestore especificando a base de dados customizada do AI Studio
+export const db = getFirestore(app, "ai-studio-barberflow-ad72a5af-c542-494c-b68b-a33897de01d2");
 
 // Inicializa o Auth
 export const auth = getAuth(app);
